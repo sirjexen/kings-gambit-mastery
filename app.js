@@ -118,7 +118,9 @@ function updateEval(){
   });
 }
 
-board=Chessboard('board',{draggable:true,position:'start',onDrop:onDrop,onSnapEnd:function(){refresh();}});
+board=Chessboard('board',{draggable:true,position:'start',
+  pieceTheme:'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+  onDrop:onDrop,onSnapEnd:function(){refresh();}});
 function onDrop(src,tgt){
   var mv=game.move({from:src,to:tgt,promotion:'q'});
   if(!mv)return 'snapback';
@@ -133,9 +135,34 @@ function routeUserMove(src,tgt){
 function applyUserMove(src,tgt){
   var mv=game.move({from:src,to:tgt,promotion:'q'});
   if(!mv)return null;
+  Sfx.play(!!mv.captured);
   clearHl();hl(mv.from,'square-last');hl(mv.to,'square-last');
   refresh();return mv;
 }
+/* ---------- sound (WebAudio, tanpa aset) ---------- */
+var Sfx={on:true,ctx:null,
+  init:function(){try{this.on=localStorage.getItem('kgm_sfx')!=='off';}catch(e){this.on=true;}},
+  play:function(captured){
+    if(!this.on)return;
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+      this.ctx=this.ctx||new AC();
+      if(this.ctx.state==='suspended')this.ctx.resume();
+      var o=this.ctx.createOscillator(),g=this.ctx.createGain();
+      o.connect(g);g.connect(this.ctx.destination);
+      o.type='sine';o.frequency.value=captured?200:460;
+      g.gain.setValueAtTime(0.07,this.ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,this.ctx.currentTime+0.12);
+      o.start();o.stop(this.ctx.currentTime+0.13);
+    }catch(e){}
+  },
+  toggle:function(){
+    this.on=!this.on;
+    try{localStorage.setItem('kgm_sfx',this.on?'on':'off');}catch(e){}
+    return this.on;
+  }
+};
+
 function coach(sel,html){$(sel).innerHTML=html;}
 
 /* ---------- tabs ---------- */
@@ -236,7 +263,7 @@ var Learn={
       this.ply++;this.attempts=0;
       if(this.ply>=this.line.moves.length){
         this.guess=false;this.render();
-        coach('#coachLearn','Sempurna! Kamu hafal seluruh lini <b>'+esc(this.line.name)+'</b>. 🎉');
+        coach('#coachLearn','Sempurna! Kamu hafal seluruh lini <b>'+esc(this.line.name)+'</b>.');
       }else{this.render();coach('#coachLearn','Benar! '+esc(this.line.notes[this.ply-1]||''));}
     }else{
       this.attempts++;
@@ -258,6 +285,12 @@ var Sparring={
     sd.value=this.defenseId;
     $('#btnSparStart').onclick=function(){Sparring.start();};
     $('#btnSparStop').onclick=function(){Sparring.stop();};
+    $('#btnPgn').onclick=function(){
+      var pgn=game.pgn();
+      function done(ok){coach('#coachSpar',ok?'PGN tersalin. Tempel di mana saja untuk menyimpan partaimu.':'Gagal menyalin PGN.');}
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(pgn).then(function(){done(true);},function(){done(false);});
+      else done(false);
+    };
     this.showIdle();
   },
   stop:function(){this.active=false;},
@@ -317,7 +350,7 @@ var Sparring={
       var botC=this.botColor();
       if(game.turn()===botC){
         var e2=game.move('e5');
-        if(e2){this.movesPlayed++;clearHl();hl(e2.from,'square-last');hl(e2.to,'square-last');refresh();this.renderMoves();
+        if(e2){this.movesPlayed++;Sfx.play(false);clearHl();hl(e2.from,'square-last');hl(e2.to,'square-last');refresh();this.renderMoves();
           coach('#coachSpar','1…e5 dimainkan. Sekarang <b>2.f4!</b> — ayo gambitnya.');}
       }
       return;
@@ -366,6 +399,7 @@ var Sparring={
       if(!ch)return;
       var mv=game.move({from:ch.from,to:ch.to,promotion:ch.promotion||'q'});
       if(!mv)return;
+      Sfx.play(!!mv.captured);
       self.movesPlayed++;clearHl();hl(mv.from,'square-last');hl(mv.to,'square-last');
       refresh();self.renderMoves();
       if(self.checkOver())return;
@@ -396,7 +430,7 @@ var Sparring={
   checkOver:function(){
     if(!game.game_over())return false;
     var msg;
-    if(game.in_checkmate())msg=game.turn()!==this.userColor?'Kamu menang — MAT! 🎉':'Bot menang — mat. Coba lagi!';
+    if(game.in_checkmate())msg=game.turn()!==this.userColor?'Kamu menang — MAT!':'Bot menang — mat. Coba lagi!';
     else if(game.in_stalemate())msg='Remis — stalemate.';
     else if(game.in_threefold_repetition())msg='Remis — repetisi.';
     else if(game.in_insufficient_material())msg='Remis — materi kurang.';
@@ -447,7 +481,7 @@ var Puzzle={
       if(this.step>=pz.solution.length){
         this.solved++;this.streak++;this.score();
         var self=this;
-        coach('#coachPuz','Tepat sekali! 🎉 Lanjut ke puzzle berikutnya…');
+        coach('#coachPuz','Tepat sekali! Lanjut ke puzzle berikutnya…');
         setTimeout(function(){if(S.mode==='puzzle')self.go(self.idx+1);},1400);
       }else{
         // langkah balasan otomatis bila ada
@@ -457,10 +491,10 @@ var Puzzle={
           setTimeout(function(){
             if(S.mode!=='puzzle')return;
             var r=game.move({from:reply.from,to:reply.to,promotion:'q'});
-            if(r){self2.step++;clearHl();hl(r.from,'square-last');hl(r.to,'square-last');refresh();
+            if(r){self2.step++;Sfx.play(!!r.captured);clearHl();hl(r.from,'square-last');hl(r.to,'square-last');refresh();
               if(self2.step>=PUZZLES[self2.idx].solution.length){
                 self2.solved++;self2.streak++;self2.score();
-                coach('#coachPuz','Tepat sekali! 🎉 Lanjut…');
+                coach('#coachPuz','Tepat sekali! Lanjut…');
                 setTimeout(function(){if(S.mode==='puzzle')self2.go(self2.idx+1);},1400);
               }else coach('#coachPuz','Bagus — lanjutkan!');
             }
@@ -554,6 +588,11 @@ var Quiz={
 
 /* ---------- init ---------- */
 Engine.init();
+Sfx.init();
+$('#btnFlip').addEventListener('click',function(){board.flip();});
+var sfxBtn=$('#btnSfx');
+sfxBtn.textContent='Suara: '+(Sfx.on?'on':'off');
+sfxBtn.addEventListener('click',function(){sfxBtn.textContent='Suara: '+(Sfx.toggle()?'on':'off');});
 Learn.enter();
 refresh();
 

@@ -65,6 +65,7 @@ select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8p
 .quizopts .btn.ok{border-color:var(--accent);background:#e9f3ec}
 .quizopts .btn.no{border-color:var(--danger);background:#fdecea}
 .foot{text-align:center;color:var(--muted);font-size:12px;margin:18px 0 6px}
+.hidden{display:none!important}
 /* chessboard square colors + highlights */
 .white-1e1d7{background-color:var(--sq-light)!important;color:#8a6d4b!important}
 .black-3c85e{background-color:var(--sq-dark)!important;color:#f0d9b5!important}
