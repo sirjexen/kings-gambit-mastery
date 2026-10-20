@@ -2,16 +2,15 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>King's Gambit Mastery</title>
 <meta name="description" content="Belajar dan berlatih King's Gambit (1.e4 e5 2.f4): teori, sparring melawan bot, puzzle, dan kuis.">
-<link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="app">
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">♞</span>
+    <div class="brand"><span class="brand-mark">&#9822;</span>
       <div><h1>King's Gambit Mastery</h1><p class="tagline">Kuasai 1.e4 e5 2.f4 — teori, sparring, puzzle, kuis.</p></div>
     </div>
     <nav class="tabs" role="tablist">
@@ -26,13 +25,16 @@
 
   <main class="layout">
     <section class="board-col">
-      <div id="board"></div>
+      <div id="board" class="board" aria-label="Papan catur"></div>
       <div class="under-board">
         <span id="turnBadge" class="badge">—</span>
         <span id="evalBadge" class="badge subtle">evaluasi: …</span>
+      </div>
+      <div class="btnrow board-btns">
         <button id="btnFlip" class="btn">Balik papan</button>
         <button id="btnSfx" class="btn">Suara: on</button>
       </div>
+      <p class="hint">Ketuk bidak untuk melihat langkahnya, lalu ketuk petak tujuan.</p>
     </section>
 
     <section class="panel-col">
@@ -41,9 +43,9 @@
         <label class="fld"><span>Pilih lini teori</span><select id="selLine"></select></label>
         <div id="lineMeta" class="meta"></div>
         <div class="btnrow">
-          <button id="btnPrev" class="btn">‹</button>
-          <button id="btnNext" class="btn">›</button>
-          <button id="btnAuto" class="btn">▶ Otomatis</button>
+          <button id="btnPrev" class="btn big">‹</button>
+          <button id="btnNext" class="btn big">›</button>
+          <button id="btnAuto" class="btn">Otomatis</button>
           <button id="btnGuess" class="btn primary">Tebak Langkah</button>
         </div>
         <div id="coachLearn" class="coach">Pilih lini, lalu telusuri langkahnya atau uji ingatanmu.</div>
@@ -62,7 +64,7 @@
             <option value="3">Master — menghukum kesalahan</option>
           </select></label>
         <div class="btnrow">
-          <button id="btnSparStart" class="btn primary">Mulai Sparring</button>
+          <button id="btnSparStart" class="btn primary big">Mulai Sparring</button>
           <button id="btnSparStop" class="btn">Berhenti</button>
           <button id="btnPgn" class="btn">Salin PGN</button>
         </div>
@@ -73,11 +75,11 @@
       <!-- PUZZLE -->
       <div class="panel hidden" id="panel-puzzle">
         <div class="btnrow">
-          <button id="btnPuzPrev" class="btn">‹</button>
+          <button id="btnPuzPrev" class="btn big">‹</button>
           <span id="puzTitle" class="meta grow"></span>
-          <button id="btnPuzNext" class="btn">›</button>
+          <button id="btnPuzNext" class="btn big">›</button>
         </div>
-        <div id="coachPuz" class="coach">Temukan langkah terbaik. Klik petak asal lalu petak tujuan (atau seret bidak).</div>
+        <div id="coachPuz" class="coach">Temukan langkah terbaik. Ketuk bidak lalu ketuk petak tujuan.</div>
         <div class="btnrow">
           <button id="btnPuzReset" class="btn">Ulangi</button>
           <button id="btnPuzSkip" class="btn">Lewati</button>
@@ -91,19 +93,24 @@
         <div id="quizOpts" class="quizopts"></div>
         <div id="quizFb" class="coach"></div>
         <div class="btnrow">
-          <button id="btnQuizNew" class="btn primary">Soal baru</button>
+          <button id="btnQuizNew" class="btn primary big">Soal baru</button>
           <span id="quizScore" class="meta"></span>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="foot">King's Gambit Mastery v2 — dibuat simpel, diverifikasi langkah per langkah.</footer>
+  <div id="promo" class="promo hidden">
+    <div class="promo-box">
+      <p>Promosi ke:</p>
+      <div class="promo-row" id="promoRow"></div>
+    </div>
+  </div>
+
+  <footer class="foot">King's Gambit Mastery v3 — kontrol ketuk, dibuat untuk mobile.</footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
 <script src="data.js"></script>
 <script src="engine.js"></script>
 <script src="app.js"></script>
