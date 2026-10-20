@@ -38,7 +38,7 @@ body{
 .board{
   display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
   width:100%;aspect-ratio:1/1;border-radius:6px;overflow:hidden;
-  touch-action:none;user-select:none;-webkit-user-select:none;
+  touch-action:manipulation;user-select:none;-webkit-user-select:none;
 }
 .boardwrap{display:flex;gap:8px;align-items:stretch}
 .boardholder{flex:1;min-width:0}
