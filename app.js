@@ -108,12 +108,12 @@ var DEFENSES=[
   {id:'kgd-falk',  label:'Tolak — Falkbeer: 2...d5'}
 ];
 
-/* ---------- custom board: tap-to-move ---------- */
+/* ---------- custom board: tap-to-move (petak persisten) ---------- */
 var Board={
-  el:null,orientation:'w',sel:null,targets:{},last:null,marks:{},promo:null,
-  init:function(){this.el=$('#board');this.draw();},
-  setOrientation:function(o){this.orientation=o;this.draw();},
-  flip:function(){this.orientation=(this.orientation==='w'?'b':'w');this.draw();},
+  el:null,orientation:'w',sel:null,targets:{},last:null,marks:{},promo:null,sqEls:null,
+  init:function(){this.el=$('#board');this.build();this.draw();},
+  setOrientation:function(o){this.orientation=o;this.layout();this.draw();},
+  flip:function(){this.orientation=(this.orientation==='w'?'b':'w');this.layout();this.draw();},
   fenMap:function(){
     var map={},rows=game.fen().split(' ')[0].split('/'),files='abcdefgh';
     for(var r=0;r<8;r++){var f=0;
@@ -129,26 +129,51 @@ var Board={
       out.push(this.orientation==='w'?files[f]+(8-r):files[7-f]+(r+1));
     return out;
   },
-  draw:function(){
+  build:function(){
     if(!this.el)return;
-    var self=this,map=this.fenMap(),files='abcdefgh';
-    this.el.innerHTML='';
-    this.order().forEach(function(sq){
-      var f=files.indexOf(sq[0]),r=+sq[1];
+    var self=this,files='abcdefgh';
+    this.el.innerHTML='';this.sqEls={};
+    for(var r=8;r>=1;r--)for(var f=0;f<8;f++){
+      var sq=files[f]+r;
       var d=document.createElement('div');
       d.className='sq '+(((f+r)%2===1)?'dark':'light');
       d.setAttribute('data-sq',sq);
-      var showRank=(self.orientation==='w'?f===0:f===7);
-      var showFile=(self.orientation==='w'?r===1:r===8);
-      if(showRank){var cr=document.createElement('span');cr.className='coord rank';cr.textContent=sq[1];d.appendChild(cr);}
-      if(showFile){var cf=document.createElement('span');cf.className='coord file';cf.textContent=sq[0];d.appendChild(cf);}
-      if(map[sq]){var img=document.createElement('img');img.src=pieceURL(map[sq]);img.alt=map[sq];img.draggable=false;d.appendChild(img);}
-      if(self.sel===sq)d.classList.add('sel');
-      if(self.last&&(self.last.from===sq||self.last.to===sq))d.classList.add('last');
-      if(self.marks[sq])d.classList.add(self.marks[sq]);
-      if(self.targets[sq]){var t=document.createElement('span');t.className=map[sq]?'ring':'dot';d.appendChild(t);}
-      d.addEventListener('click',function(){onTap(sq);});
-      self.el.appendChild(d);
+      var cr=document.createElement('span');cr.className='coord rank';cr.textContent=sq[1];
+      var cf=document.createElement('span');cf.className='coord file';cf.textContent=sq[0];
+      d.appendChild(cr);d.appendChild(cf);
+      (function(el,s){el.addEventListener('click',function(){onTap(s);});})(d,sq);
+      this.sqEls[sq]={root:d,rank:cr,file:cf,img:null,dot:null};
+    }
+    this.layout();
+  },
+  layout:function(){
+    if(!this.sqEls||!this.el)return;
+    var self=this,files='abcdefgh';
+    this.order().forEach(function(sq){
+      var rec=self.sqEls[sq];
+      self.el.appendChild(rec.root);
+      var f=files.indexOf(sq[0]),r=+sq[1];
+      rec.rank.style.display=(self.orientation==='w'?f===0:f===7)?'':'none';
+      rec.file.style.display=(self.orientation==='w'?r===1:r===8)?'':'none';
+    });
+  },
+  draw:function(){
+    if(!this.el)return;
+    if(!this.sqEls)this.build();
+    var self=this,map=this.fenMap();
+    Object.keys(this.sqEls).forEach(function(sq){
+      var rec=self.sqEls[sq],root=rec.root,code=map[sq];
+      if(code){
+        if(!rec.img){rec.img=document.createElement('img');rec.img.draggable=false;root.appendChild(rec.img);}
+        var url=pieceURL(code);
+        if(rec.img.getAttribute('src')!==url)rec.img.setAttribute('src',url);
+        rec.img.alt=code;
+      }else if(rec.img){root.removeChild(rec.img);rec.img=null;}
+      root.classList.toggle('sel',self.sel===sq||self.marks[sq]==='sel');
+      root.classList.toggle('last',!!(self.last&&(self.last.from===sq||self.last.to===sq)));
+      var wantDot=self.targets[sq]?(code?'ring':'dot'):null;
+      if(rec.dot&&(!wantDot||rec.dot.className!==wantDot)){root.removeChild(rec.dot);rec.dot=null;}
+      if(wantDot&&!rec.dot){rec.dot=document.createElement('span');rec.dot.className=wantDot;root.appendChild(rec.dot);}
     });
   },
   sync:function(){this.draw();},
