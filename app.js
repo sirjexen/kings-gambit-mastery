@@ -160,7 +160,11 @@ var Board={
   draw:function(){
     if(!this.el)return;
     if(!this.sqEls)this.build();
-    var self=this,map=this.fenMap();
+    var self=this,map=this.fenMap(),checkSq=null;
+    if(game.in_check()){
+      var kc=game.turn()+'K';
+      Object.keys(map).forEach(function(sq){if(map[sq]===kc)checkSq=sq;});
+    }
     Object.keys(this.sqEls).forEach(function(sq){
       var rec=self.sqEls[sq],root=rec.root,code=map[sq];
       if(code){
@@ -170,6 +174,7 @@ var Board={
         rec.img.alt=code;
       }else if(rec.img){root.removeChild(rec.img);rec.img=null;}
       root.classList.toggle('sel',self.sel===sq||self.marks[sq]==='sel');
+      root.classList.toggle('check',checkSq===sq);
       root.classList.toggle('last',!!(self.last&&(self.last.from===sq||self.last.to===sq)));
       var wantDot=self.targets[sq]?(code?'ring':'dot'):null;
       if(rec.dot&&(!wantDot||rec.dot.className!==wantDot)){root.removeChild(rec.dot);rec.dot=null;}
@@ -253,13 +258,17 @@ function updateEval(){
   $('#evalBadge').textContent='evaluasi: …';
   Engine.analyze(game.fen(),2,500).then(function(d){
     if(!d.ok)return;
-    var s=d.r.score,txt;
-    if(Math.abs(s)>90000)txt='mat';
+    var s=d.r.score,txt,wPov=(game.turn()==='w'?s:-s);
+    if(Math.abs(s)>90000){txt='mat';}
     else{
-      var w=(game.turn()==='w'?s:-s)/100;
+      var w=wPov/100;
       txt=Math.abs(w)<0.15?'seimbang':(w>0?'+':'')+w.toFixed(1)+' untuk '+(w>0?'Putih':'Hitam');
     }
     $('#evalBadge').textContent='evaluasi: '+txt;
+    var pct;
+    if(Math.abs(wPov)>90000)pct=wPov>0?100:0;
+    else pct=(1/(1+Math.exp(-wPov/350)))*100;
+    $('#evalfill').style.height=pct.toFixed(1)+'%';
   });
 }
 
@@ -376,15 +385,34 @@ var Learn={
 };
 
 /* ================= SPARRING ================= */
+var BOTS=[
+  {id:'bimo',  name:'Bimo',  rating:400, depth:1,timeMs:300, blunder:0.35,desc:'Baru belajar. Sering memberi bidak gratis.'},
+  {id:'sari',  name:'Sari',  rating:800, depth:1,timeMs:450, blunder:0.16,desc:'Tahu taktik dasar, tapi masih suka lengah.'},
+  {id:'raka',  name:'Raka',  rating:1200,depth:2,timeMs:600, blunder:0.07,desc:'Pemain klub pemula. Solid, jarang blunder besar.'},
+  {id:'nadia', name:'Nadia', rating:1600,depth:3,timeMs:900, blunder:0.02,desc:'Kuat di taktik. Siap menghukum kesalahanmu.'},
+  {id:'bagas', name:'Bagas', rating:2000,depth:4,timeMs:1500,blunder:0,   desc:'Hampir tanpa celah. Main presisi.'},
+  {id:'sultan',name:'Sultan',rating:2400,depth:5,timeMs:2200,blunder:0,   desc:'Mesin dingin tingkat master. Berani coba?'}
+];
 var Sparring={
-  active:false,userColor:'w',defenseId:'kg-g5',level:2,free:false,botThinking:false,movesPlayed:0,
+  active:false,kind:'gambit',userColor:'w',defenseId:'kg-g5',level:2,free:false,botThinking:false,movesPlayed:0,bot:BOTS[2],
   LEVELS:{1:{depth:1,timeMs:350,blunder:0.22},2:{depth:3,timeMs:800,blunder:0.03},3:{depth:5,timeMs:2000,blunder:0}},
   enter:function(){
+    var self=this;
     var sd=$('#selDefense');sd.innerHTML='';
     DEFENSES.forEach(function(d){var o=document.createElement('option');o.value=d.id;o.textContent=d.label;sd.appendChild(o);});
     sd.value=this.defenseId;
-    $('#btnSparStart').onclick=function(){Sparring.start();};
-    $('#btnSparStop').onclick=function(){Sparring.stop();};
+    var sb=$('#selBot');sb.innerHTML='';
+    BOTS.forEach(function(b){var o=document.createElement('option');o.value=b.id;o.textContent=b.name+' ('+b.rating+')';sb.appendChild(o);});
+    sb.value=this.bot.id;
+    sb.onchange=function(){self.bot=BOTS[sb.selectedIndex];self.renderBotDesc();};
+    this.renderBotDesc();
+    $('#kindGambit').onclick=function(){self.setKind('gambit');};
+    $('#kindFree').onclick=function(){self.setKind('free');};
+    $('#btnSparStart').onclick=function(){self.start();};
+    $('#btnSparStop').onclick=function(){self.stop();};
+    $('#btnFreeStart').onclick=function(){self.startFree();};
+    $('#btnUndo').onclick=function(){self.undo();};
+    $('#btnResign').onclick=function(){self.resign();};
     $('#btnPgn').onclick=function(){
       if(navigator.clipboard&&navigator.clipboard.writeText)
         navigator.clipboard.writeText(game.pgn()).then(
@@ -392,22 +420,35 @@ var Sparring={
           function(){coach('#coachSpar','Gagal menyalin PGN.');});
       else coach('#coachSpar','Browser tidak mendukung salin otomatis.');
     };
+    this.setKind(this.kind);
+  },
+  renderBotDesc:function(){$('#botDesc').textContent=this.bot.name+' · rating '+this.bot.rating+' — '+this.bot.desc;},
+  setKind:function(kind){
+    this.kind=kind;this.stop();
+    $('#kindGambit').classList.toggle('active',kind==='gambit');
+    $('#kindFree').classList.toggle('active',kind==='free');
+    $('#cfgGambit').classList.toggle('hidden',kind!=='gambit');
+    $('#cfgFree').classList.toggle('hidden',kind!=='free');
     this.showIdle();
   },
   stop:function(){this.active=false;},
   showIdle:function(){
     game=new Chess();Board.setOrientation('w');Board.clearAll();refresh();
-    $('#sparMoves').innerHTML='';
-    coach('#coachSpar','Bot akan memainkan King\'s Gambit sungguhan: 1.e4 selalu dibalas 1…e5, lalu mengikuti buku teori pertahanan pilihanmu.');
+    $('#sparMoves').innerHTML='';$('#capRow').innerHTML='';
+    coach('#coachSpar',this.kind==='gambit'
+      ?'Bot akan memainkan King\'s Gambit sungguhan: 1.e4 selalu dibalas 1…e5, lalu mengikuti buku teori pertahanan pilihanmu.'
+      :'Main bebas melawan <b>'+esc(this.bot.name)+' ('+this.bot.rating+')</b>. Partai penuh seperti di chess.com — ada undo dan menyerah.');
   },
+  /* ---------- LATIHAN GAMBIT ---------- */
   start:function(){
     S.gen++;var myGen=S.gen;
+    this.kind='gambit';
     this.active=true;this.free=false;this.botThinking=false;this.movesPlayed=0;
     this.userColor=$('#selColor').value;
     this.defenseId=$('#selDefense').value;
     this.level=parseInt($('#selLevel').value,10)||2;
     var defLabel=$('#selDefense').selectedOptions[0].textContent;
-    $('#sparMoves').innerHTML='';
+    $('#sparMoves').innerHTML='';$('#capRow').innerHTML='';
     Board.clearAll();
     if(this.userColor==='w'){
       game=new Chess();Board.setOrientation('w');
@@ -422,6 +463,55 @@ var Sparring={
     refresh();this.renderMoves();
     this.maybeBotMove(myGen);
   },
+  /* ---------- MAIN BEBAS ---------- */
+  startFree:function(){
+    S.gen++;var myGen=S.gen;
+    this.kind='free';
+    this.active=true;this.free=true;this.botThinking=false;this.movesPlayed=0;
+    var c=$('#selFreeColor').value;
+    this.userColor=c==='r'?(Math.random()<0.5?'w':'b'):c;
+    game=new Chess();
+    Board.setOrientation(this.userColor);Board.clearAll();
+    $('#sparMoves').innerHTML='';
+    coach('#coachSpar','Partai dimulai melawan <b>'+esc(this.bot.name)+' ('+this.bot.rating+')</b>. Kamu main sebagai <b>'+(this.userColor==='w'?'Putih':'Hitam')+'</b>. Semoga beruntung!');
+    refresh();this.renderMoves();this.renderCaptured();
+    this.maybeBotMove(myGen);
+  },
+  undo:function(){
+    if(this.kind!=='free'){coach('#coachSpar','Undo hanya di mode Main Bebas.');return;}
+    if(this.botThinking){coach('#coachSpar','Bot sedang berpikir, tunggu sebentar.');return;}
+    if(game.history().length===0)return;
+    S.gen++;this.active=true;
+    game.undo();
+    if(game.history().length>0&&game.turn()!==this.userColor)game.undo();
+    this.movesPlayed=game.history().length;
+    Board.clearAll();refresh();this.renderMoves();this.renderCaptured();
+    coach('#coachSpar','Langkah dibatalkan. Giliranmu lagi.');
+  },
+  resign:function(){
+    if(this.kind!=='free'||!this.active)return;
+    S.gen++;this.active=false;
+    coach('#coachSpar','<b>Kamu menyerah.</b> '+esc(this.bot.name)+' memenangkan partai ini. Tekan "Mulai Main" untuk balas dendam.');
+  },
+  renderCaptured:function(){
+    if(this.kind!=='free'){$('#capRow').innerHTML='';return;}
+    var start={p:8,n:2,b:2,r:2,q:1},val={p:1,n:3,b:3,r:5,q:9};
+    var cur={w:{p:0,n:0,b:0,r:0,q:0},b:{p:0,n:0,b:0,r:0,q:0}};
+    var map=Board.fenMap();
+    Object.keys(map).forEach(function(sq){var c=map[sq],t=c[1].toLowerCase();if(cur[c[0]]&&cur[c[0]][t]!==undefined)cur[c[0]][t]++;});
+    function missing(col){var out=[];['q','r','b','n','p'].forEach(function(t){for(var i=0;i<start[t]-cur[col][t];i++)out.push(col+t.toUpperCase());});return out;}
+    function lineHTML(name,pieces,diff){
+      var h='<div class="capline"><span class="capname">'+esc(name)+'</span>';
+      pieces.forEach(function(pc){h+='<img src="'+pieceURL(pc)+'" alt="'+pc+'">';});
+      if(diff>0)h+='<span class="matdiff">+'+diff+'</span>';
+      return h+'</div>';
+    }
+    var capByUser=missing(this.botColor()),capByBot=missing(this.userColor);
+    var diff=0;
+    capByUser.forEach(function(pc){diff+=val[pc[1].toLowerCase()];});
+    capByBot.forEach(function(pc){diff-=val[pc[1].toLowerCase()];});
+    $('#capRow').innerHTML=lineHTML('Kamu',capByUser,diff)+lineHTML('Bot',capByBot,-diff);
+  },
   bookMoveHint:function(){
     var L=lineById(this.defenseId);
     return L?L.moves[this.movesPlayed]||'—':'—';
@@ -433,13 +523,14 @@ var Sparring={
     return null;
   },
   userMove:function(src,tgt,promo){
-    if(!this.active){coach('#coachSpar','Tekan "Mulai Sparring" dulu.');return;}
+    if(!this.active){coach('#coachSpar',this.kind==='free'?'Tekan "Mulai Main" dulu.':'Tekan "Mulai Latihan" dulu.');return;}
     if(game.turn()!==this.userColor){coach('#coachSpar','Bukan giliranmu.');return;}
     var mv=applyUserMove(src,tgt,promo);
     if(!mv)return;
-    this.movesPlayed++;this.renderMoves();
+    this.movesPlayed++;this.renderMoves();this.renderCaptured();
     if(this.checkOver())return;
     var myGen=S.gen;
+    if(this.kind==='free'){this.maybeBotMove(myGen);return;}
     if(this.userColor==='w'&&this.movesPlayed===1){
       if(game.history()[0]!=='e4'){
         this.free=true;
@@ -477,7 +568,8 @@ var Sparring={
     if(game.game_over())return;
     if(game.turn()!==self.botColor())return;
     self.botThinking=true;
-    coach('#coachSpar','Bot berpikir…');
+    if(self.kind==='free')coach('#coachSpar',esc(self.bot.name)+' berpikir…');
+    else coach('#coachSpar','Bot berpikir…');
     setTimeout(function(){self.doBotMove(myGen);},450);
   },
   doBotMove:function(myGen){
@@ -485,8 +577,37 @@ var Sparring={
     self.botThinking=false;
     if(!self.active||myGen!==S.gen||S.mode!=='sparring')return;
     if(game.turn()!==self.botColor())return;
+    var viaBook=false,choice=null;
+    if(self.kind==='free'){
+      var bot=self.bot;
+      // variasi pembuka saat bot Putih
+      if(game.history().length===0&&self.botColor()==='w'){
+        var opens=['e4','e4','d4','c4','Nf3'];
+        choice={san:opens[Math.floor(Math.random()*opens.length)]};
+      }else if(Math.random()<bot.blunder){
+        var all=game.moves({verbose:true});
+        var pick=all[Math.floor(Math.random()*all.length)];
+        choice={from:pick.from,to:pick.to,promotion:pick.promotion};
+      }
+      var doneFree=function(ch){
+        if(!ch)return;
+        var mv=ch.san?game.move(ch.san):game.move({from:ch.from,to:ch.to,promotion:ch.promotion||'q'});
+        if(!mv)return;
+        moveFeedback(!!mv.captured);
+        self.movesPlayed++;Board.setLast({from:mv.from,to:mv.to});
+        refresh();self.renderMoves();self.renderCaptured();
+        if(self.checkOver())return;
+        coach('#coachSpar','Giliranmu.');
+      };
+      if(choice){doneFree(choice);return;}
+      Engine.analyze(game.fen(),bot.depth,bot.timeMs).then(function(d){
+        if(!self.active||myGen!==S.gen||S.mode!=='sparring')return;
+        if(d.ok&&d.r&&d.r.best)doneFree(d.r.best);
+        else{var a2=game.moves({verbose:true});if(a2.length)doneFree({from:a2[0].from,to:a2[0].to,promotion:a2[0].promotion});}
+      });
+      return;
+    }
     var L=self.LEVELS[self.level];
-    var choice=null,viaBook=false;
     if(!self.free){
       var b=self.bookMove();
       if(b){choice={from:b.from,to:b.to,promotion:'q'};viaBook=true;}
@@ -503,16 +624,16 @@ var Sparring={
     };
     if(choice){done(choice);return;}
     if(Math.random()<L.blunder){
-      var all=game.moves({verbose:true});
-      var pick=all[Math.floor(Math.random()*all.length)];
-      done({from:pick.from,to:pick.to,promotion:pick.promotion});return;
+      var all2=game.moves({verbose:true});
+      var pick2=all2[Math.floor(Math.random()*all2.length)];
+      done({from:pick2.from,to:pick2.to,promotion:pick2.promotion});return;
     }
     Engine.analyze(game.fen(),L.depth,L.timeMs).then(function(d){
       if(!self.active||myGen!==S.gen||S.mode!=='sparring')return;
       if(d.ok&&d.r&&d.r.best)done(d.r.best);
       else{
-        var all2=game.moves({verbose:true});
-        if(all2.length){var p2=all2[0];done({from:p2.from,to:p2.to,promotion:p2.promotion});}
+        var a3=game.moves({verbose:true});
+        if(a3.length){var p3=a3[0];done({from:p3.from,to:p3.to,promotion:p3.promotion});}
       }
     });
   },
@@ -531,7 +652,7 @@ var Sparring={
     else if(game.in_insufficient_material())msg='Remis — materi kurang.';
     else msg='Remis.';
     this.active=false;
-    coach('#coachSpar','<b>Partai selesai:</b> '+msg);
+    coach('#coachSpar','<b>Partai selesai:</b> '+msg+(this.kind==='free'?' Tekan "Mulai Main" untuk main lagi.':''));
     return true;
   }
 };

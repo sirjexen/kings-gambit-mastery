@@ -25,7 +25,10 @@
 
   <main class="layout">
     <section class="board-col">
-      <div id="board" class="board" aria-label="Papan catur"></div>
+      <div class="boardwrap">
+        <div id="evalbar" title="Evaluasi"><div id="evalfill"></div></div>
+        <div class="boardholder"><div id="board" class="board" aria-label="Papan catur"></div></div>
+      </div>
       <div class="under-board">
         <span id="turnBadge" class="badge">—</span>
         <span id="evalBadge" class="badge subtle">evaluasi: …</span>
@@ -54,21 +57,48 @@
 
       <!-- SPARRING -->
       <div class="panel hidden" id="panel-sparring">
-        <label class="fld"><span>Kamu main sebagai</span>
-          <select id="selColor"><option value="w">Putih</option><option value="b">Hitam</option></select></label>
-        <label class="fld"><span>Pertahanan yang dilatih</span><select id="selDefense"></select></label>
-        <label class="fld"><span>Level bot</span>
-          <select id="selLevel">
-            <option value="1">Pemula — sering blunder</option>
-            <option value="2" selected>Club — teori dasar + taktik</option>
-            <option value="3">Master — menghukum kesalahan</option>
-          </select></label>
+        <div class="btnrow kindrow">
+          <button id="kindGambit" class="btn kindbtn active">Latihan Gambit</button>
+          <button id="kindFree" class="btn kindbtn">Main Bebas vs Bot</button>
+        </div>
+
+        <div id="cfgGambit">
+          <label class="fld"><span>Kamu main sebagai</span>
+            <select id="selColor"><option value="w">Putih</option><option value="b">Hitam</option></select></label>
+          <label class="fld"><span>Pertahanan yang dilatih</span><select id="selDefense"></select></label>
+          <label class="fld"><span>Level bot</span>
+            <select id="selLevel">
+              <option value="1">Pemula — sering blunder</option>
+              <option value="2" selected>Club — teori dasar + taktik</option>
+              <option value="3">Master — menghukum kesalahan</option>
+            </select></label>
+          <div class="btnrow">
+            <button id="btnSparStart" class="btn primary big">Mulai Latihan</button>
+            <button id="btnSparStop" class="btn">Berhenti</button>
+          </div>
+        </div>
+
+        <div id="cfgFree" class="hidden">
+          <label class="fld"><span>Pilih lawan bot</span><select id="selBot"></select></label>
+          <div id="botDesc" class="meta botdesc"></div>
+          <label class="fld"><span>Kamu main sebagai</span>
+            <select id="selFreeColor">
+              <option value="w">Putih</option>
+              <option value="b">Hitam</option>
+              <option value="r">Acak</option>
+            </select></label>
+          <div class="btnrow">
+            <button id="btnFreeStart" class="btn primary big">Mulai Main</button>
+            <button id="btnUndo" class="btn">Undo</button>
+            <button id="btnResign" class="btn">Menyerah</button>
+          </div>
+          <div id="capRow" class="caprow"></div>
+        </div>
+
         <div class="btnrow">
-          <button id="btnSparStart" class="btn primary big">Mulai Sparring</button>
-          <button id="btnSparStop" class="btn">Berhenti</button>
           <button id="btnPgn" class="btn">Salin PGN</button>
         </div>
-        <div id="coachSpar" class="coach">Bot akan memainkan King's Gambit sungguhan: 1.e4 selalu dibalas 1…e5, lalu mengikuti buku teori pertahanan pilihanmu.</div>
+        <div id="coachSpar" class="coach">Latihan Gambit: bot memainkan King's Gambit beneran. Main Bebas: lawan bot pilihanmu dalam partai penuh, kayak di chess.com.</div>
         <div id="sparMoves" class="moves spar"></div>
       </div>
 

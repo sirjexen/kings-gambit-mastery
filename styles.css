@@ -36,6 +36,19 @@ body{
   width:100%;aspect-ratio:1/1;border-radius:6px;overflow:hidden;
   touch-action:none;user-select:none;-webkit-user-select:none;
 }
+.boardwrap{display:flex;gap:8px;align-items:stretch}
+.boardholder{flex:1;min-width:0}
+#evalbar{width:14px;min-width:14px;background:#3d3d3d;border-radius:4px;position:relative;overflow:hidden}
+#evalfill{position:absolute;bottom:0;left:0;right:0;height:50%;background:#f2f2f2;transition:height .4s}
+.sq.check{box-shadow:inset 0 0 0 4px rgba(178,38,30,.9)}
+.kindrow{margin-bottom:4px}
+.kindbtn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.botdesc{margin:-4px 0 10px}
+.caprow{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.capline{display:flex;align-items:center;gap:4px;min-height:26px;font-size:13px}
+.capline .capname{color:var(--muted);min-width:52px}
+.capline img{width:22px;height:22px}
+.capline .matdiff{font-weight:700;color:var(--accent);margin-left:4px}
 .sq{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .sq.light{background:var(--sq-light)}
 .sq.dark{background:var(--sq-dark)}
